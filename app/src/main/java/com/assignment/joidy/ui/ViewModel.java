@@ -29,6 +29,8 @@ import javax.inject.Inject;
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
+import rx.subjects.PublishSubject;
+import rx.subjects.Subject;
 
 /**
  * Base ViewModel class to implement.
@@ -55,36 +57,26 @@ public class ViewModel extends BaseObservable {
 
     public final ObservableField<String> mErrorText;
 
+    public Subject<Product, Product> mSubject;
+
     @Inject
     protected ViewModel(APIMain apiMain, Context context){
         this.mAPIMain = apiMain;
         this.mContext = context;
         this.isDownloading = this.isEmpty = this.isError = new ObservableInt();
         this.mErrorText = new ObservableField<>();
+
+        this.isDownloading.set(View.GONE);
+        this.isEmpty.set(View.GONE);
+        this.isError.set(View.GONE);
     }
 
     protected void onCreate(@Nullable State savedInstanceState){
-        if(savedInstanceState != null && savedInstanceState.mProducts != null){
+        if(savedInstanceState != null){
             this.mProducts = savedInstanceState.mProducts;
+            this.savedLayoutManagerState = savedInstanceState.layoutManagerState;
         }else{
-            isDownloading.set(View.VISIBLE);
-            mAPIMain.getRecommendedProducts()
-                    .enqueue(new Callback<ArrayList<Product>>() {
-                        @Override
-                        public void onResponse(Call<ArrayList<Product>> call, Response<ArrayList<Product>> response) {
-                            isDownloading.set(View.GONE);
-                            isEmpty.set(response.body().size() == 0 ? View.VISIBLE : View.GONE);
-                            mProductAdapter.setDataSet(response.body());
-                        }
-
-                        @Override
-                        public void onFailure(Call<ArrayList<Product>> call, Throwable t) {
-                            isDownloading.set(View.GONE);
-                            isError.set(View.VISIBLE);
-                            mErrorText.set(ConnectionStatus.isNetworkAvailable(mContext) ?
-                                    mContext.getString(R.string.error_general) : mContext.getString(R.string.error_no_internet));
-                        }
-                    });
+            downloadProducts();
         }
 
     }
@@ -93,8 +85,9 @@ public class ViewModel extends BaseObservable {
         return new State(this);
     }
 
-    protected void onStart(){};
-    protected void onStop(){};
+    protected void onStart(){ mSubject = PublishSubject.create();}
+
+    protected void onStop(){ mSubject = null; }
 
     public void setRecyclerView(RecyclerView recyclerView){
         layoutManager = new LinearLayoutManager(recyclerView.getContext());
@@ -105,12 +98,44 @@ public class ViewModel extends BaseObservable {
         recyclerView.setLayoutManager(layoutManager);
         this.mProductAdapter = new ProductAdapter(R.layout.list_item_product, clickHandler());
         recyclerView.setAdapter(mProductAdapter);
+        if(mProducts != null){
+            mProductAdapter.setDataSet(mProducts);
+        }
     }
 
     private ClickHandler<Product> clickHandler()
     {
+        return new ClickHandler<Product>() {
+            @Override
+            public void onClick(Product product, View v) {
+                mSubject.onNext(product);
+            }
+        };
+    }
 
-        return null;
+    public void clickOnRetry(View v){
+        downloadProducts();
+    }
+
+    private void downloadProducts(){
+        isDownloading.set(View.VISIBLE);
+        mAPIMain.getRecommendedProducts()
+                .enqueue(new Callback<ArrayList<Product>>() {
+                    @Override
+                    public void onResponse(Call<ArrayList<Product>> call, Response<ArrayList<Product>> response) {
+                        isDownloading.set(View.GONE);
+                        isEmpty.set(response.body().size() == 0 ? View.VISIBLE : View.GONE);
+                        mProductAdapter.setDataSet(mProducts = response.body());
+                    }
+
+                    @Override
+                    public void onFailure(Call<ArrayList<Product>> call, Throwable t) {
+                        isDownloading.set(View.GONE);
+                        isError.set(View.VISIBLE);
+                        mErrorText.set(ConnectionStatus.isNetworkAvailable(mContext) ?
+                                mContext.getString(R.string.error_general) : mContext.getString(R.string.error_no_internet));
+                    }
+                });
     }
 
     @Parcel

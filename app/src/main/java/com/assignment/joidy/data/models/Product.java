@@ -7,5 +7,5 @@ public class Product {
     public String title;
     public String subtitle;
     public String image;
-    public String price;
+    public float price;
 }
