@@ -59,6 +59,11 @@ public class ViewModel extends BaseObservable {
 
     public Subject<Product, Product> mSubject;
 
+    /**
+     *
+     * @param apiMain: for downloading the product
+     * @param context: the context
+     */
     @Inject
     protected ViewModel(APIMain apiMain, Context context){
         this.mAPIMain = apiMain;

@@ -24,6 +24,11 @@ import rx.android.schedulers.AndroidSchedulers;
 import rx.functions.Action1;
 import rx.schedulers.Schedulers;
 
+/**
+ * OneActivity Application,with a ModelView to manage the interaction and the logic of application.
+ * The Activity (View) is kept dumb. The interaction si provided via Rxjava ( an example is given with Snackbar)
+ */
+
 public class MainActivity extends AppCompatActivity {
 
     public static final String VIEW_MODEL_STATE = "viewModelState";
